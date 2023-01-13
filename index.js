@@ -40,9 +40,9 @@ function readFileAsArray(fileName) {
 function writeFile(fileName, data) {
   try {
     fs.writeFileSync(fileName, data);
-    console.log(`File ${fileName} is written successfully.`);
+    console.log(`File ${fileName} is written successfully.\n`);
   } catch (error) {
-    console.error(`Error writing file ${fileName}: ${error}`);
+    console.error(`Error writing file ${fileName}: ${error}\n`);
   }
 }
 
@@ -68,6 +68,7 @@ function processData(data) {
     let NTFsTitles = [];
     for (let nft of addressData.NFTs) {
       if (nft.title != "") {
+        //Clear emoji from NFT Title
         let nftTitle = nft.title.replace(
           /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g,
           ""
@@ -78,8 +79,9 @@ function processData(data) {
     result.push(NTFsTitles.join("\r\n"));
     resultTable.push(result);
   }
-  saveAsCSV(resultTable);
   console.log(table(resultTable));
+  saveAsCSV(resultTable);
+
 }
 
 const saveAsCSV = (data) => {
@@ -127,8 +129,10 @@ const runMain = async () => {
   await queue.onIdle();
   bar.stop();
   processData(resultTable);
-  console.log("Invalid adressess: ");
-  console.log(invalidAdresses);
+  if(invalidAdresses.length !== 0){
+    console.log("Invalid adressess: ");
+    console.log(invalidAdresses);
+  }
 };
 
 runMain();
