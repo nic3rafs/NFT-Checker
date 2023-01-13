@@ -10,7 +10,7 @@ This small node.js program checks what and how many NFTs wallets have.
 
 ![App Screenshot](https://snipboard.io/UTWtqy.jpg)
 
-3. Add addresses you want to check to **addresses.txt** (Supports .ens domains)
+3. Add addresses you want to check to **addresses.txt** 
 
 4. Install dependencies and run
 ```bash
