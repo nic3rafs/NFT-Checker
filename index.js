@@ -103,11 +103,11 @@ const main = async () => {
       queue.add(async () => {
         const addressData = await fetchData(address);
         resultTable.push(addressData);
-        bar.increment();
       });
     } else {
       invalidAdresses.push(address);
     }
+    bar.increment();
   }
   await queue.onIdle();
   bar.stop();
