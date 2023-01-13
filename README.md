@@ -19,4 +19,5 @@ This small node.js program checks what and how many NFTs wallets have.
 ```
 
 5. Succesful output
+
 ![App Sreenshot](https://snipboard.io/kwS24t.jpg)
