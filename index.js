@@ -6,45 +6,51 @@ import PQueue from "p-queue";
 import cliProgress from "cli-progress";
 dotenv.config();
 
-const { ALCHEMY_API_KEY, NETWORK } = process.env;
-let config;
-if (ALCHEMY_API_KEY && NETWORK) {
-  config = {
+const createConfig = () => {
+  const { ALCHEMY_API_KEY, NETWORK } = process.env;
+  if (!ALCHEMY_API_KEY || !NETWORK) {
+    console.error("Please add ALCHEMY_API_KEY and NETWORK to .env");
+    process.exit(1);
+  }
+  return {
     apiKey: ALCHEMY_API_KEY,
     network: Network[NETWORK],
   };
-} else {
-  console.log("Please add ALCHEMY_API_KEY and NETWORK to .env");
-  process.exit(1);
-}
-const alchemy = new Alchemy(config);
+};
+const alchemy = new Alchemy(createConfig());
 
-function validateAddress(address) {
-  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-    return false;
-  } else {
-    return true;
-  }
-}
+const validateAddress = (address) => /^0x[a-fA-F0-9]{40}$/.test(address);
 
-function readFileAsArray(fileName) {
+const readFileAsArray = async (fileName) => {
   try {
-    const fileContent = fs.readFileSync(fileName).toString();
+    const fileContent = await fs.promises.readFile(fileName, "utf-8");
     return fileContent.split("\n");
   } catch (error) {
     console.error(`Error reading file ${fileName}: ${error}`);
     return null;
   }
-}
+};
 
-function writeFile(fileName, data) {
+const writeFile = async (fileName, data) => {
   try {
-    fs.writeFileSync(fileName, data);
+    await fs.promises.writeFile(fileName, data);
     console.log(`File ${fileName} is written successfully.\n`);
   } catch (error) {
     console.error(`Error writing file ${fileName}: ${error}\n`);
   }
-}
+};
+
+const convertToCsv = (data) => {
+  let result = "";
+  for (let row of data) {
+    for (let i = 0; i < row.length; i++) {
+      result += '"' + row[i].toString().split("\r\n").join(", ") + '",';
+    }
+    result = result.slice(0, -1);
+    result += "\n";
+  }
+  return result;
+};
 
 const fetchData = async (address) => {
   try {
@@ -59,7 +65,7 @@ const fetchData = async (address) => {
   }
 };
 
-function processData(data) {
+const processData = (data) => {
   let resultTable = [["Address", "Total", "NFTs"]];
   for (const addressData of data) {
     let result = [];
@@ -79,60 +85,36 @@ function processData(data) {
     result.push(NTFsTitles.join("\r\n"));
     resultTable.push(result);
   }
-  console.log(table(resultTable));
-  saveAsCSV(resultTable);
-
-}
-
-const saveAsCSV = (data) => {
-  let result = "";
-  for (let row of data) {
-    for (let i = 0; i < row.length; i++) {
-      result += '"' + row[i].toString().split("\r\n").join(", ") + '",';
-    }
-    result = result.slice(0, -1);
-    result += "\n";
-  }
-  writeFile("output.csv", result);
+  return resultTable;
 };
 
-const runMain = async () => {
+const main = async () => {
   let resultTable = [];
   let invalidAdresses = [];
-  const addresses = readFileAsArray("addresses.txt");
+  const addresses = await readFileAsArray("addresses.txt");
 
   const total = addresses.length;
   const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
   bar.start(total, 0);
-
   const queue = new PQueue({ concurrency: 2 });
 
-  let i = 0;
-  addresses.forEach((address) => {
-    if (!validateAddress(address)) {
+  for (const address of addresses) {
+    if (validateAddress(address)) {
+      queue.add(async () => {
+        const addressData = await fetchData(address);
+        resultTable.push(addressData);
+        bar.increment();
+      });
+    } else {
       invalidAdresses.push(address);
-      return;
     }
-
-    queue.add(async () => {
-      try {
-        const result = await fetchData(address, bar);
-        if (result) {
-          resultTable.push(result);
-          bar.increment();
-        }
-      } catch (error) {
-        console.error(error);
-      }
-    });
-  });
+  }
   await queue.onIdle();
   bar.stop();
-  processData(resultTable);
-  if(invalidAdresses.length !== 0){
-    console.log("Invalid adressess: ");
-    console.log(invalidAdresses);
-  }
+  return { resultTable, invalidAdresses };
 };
 
-runMain();
+const { resultTable, invalidAdresses } = await main();
+console.log(table(processData(resultTable)));
+await writeFile("output.csv", convertToCsv(processData(resultTable)));
+console.log("Invalid addresses:", invalidAdresses);
